@@ -1,0 +1,9 @@
+Package: com.ginsu.killcontrol
+Name: KillControl
+Version: 0.0.1
+Architecture: iphoneos-arm
+Description: An awesome Orion tweak!
+Maintainer: Ginsu
+Author: Ginsu
+Section: Tweaks
+Depends: dev.theos.orion14, firmware (>= 14.0), com.ginsu.libgscommon, com.opa334.altlist, preferenceloader

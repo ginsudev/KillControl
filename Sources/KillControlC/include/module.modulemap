@@ -1,0 +1,4 @@
+module KillControlC {
+    umbrella "."
+    export *
+}
