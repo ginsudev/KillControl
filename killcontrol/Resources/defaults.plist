@@ -22,5 +22,7 @@
 	<false/>
 	<key>excludeMediaApps</key>
 	<true/>
+	<key>onlyKillChosenWhenLocked</key>
+	<false/>
 </dict>
 </plist>

@@ -8,6 +8,8 @@ struct localSettings {
     static var hasGracePeriod: Bool!
     static var killLockGracePeriodTimeMeasurement: Int! //1: Sec, 2: Min, 3: Hour
     static var killLockGracePeriod: Double!
+    static var onlyKillChosenWhenLocked: Bool!
+    static var onlyKillTheseWhenLocked: [String]!
     //Kill/Open rule
     static var killOnAppLaunch: Bool!
     static var openOnAppLaunch: Bool!
@@ -16,7 +18,7 @@ struct localSettings {
     static var openTheseAppsTwo: [String]!
     static var whenThisAppOpensTwo: String!
     //Blacklisting
-    static var blacklistApps: [String]!
+    static var whitelistApps: [String]!
     static var excludeMediaApps: Bool!
     //Misc
     static var swipeDownToKillAll: Bool!
@@ -129,18 +131,20 @@ class SBMainSwitcherViewController_Hook: ClassHook<SBMainSwitcherViewController>
             let displayItem = Ivars<SBPBDisplayItem>(app.protobufRepresentation())._primaryDisplayItem
             let identifier: String = Ivars<NSString>(displayItem)._bundleIdentifier as String
             
-            //Exclude if now playing
-            if localSettings.excludeMediaApps {
-                if nowPlayingApp?.bundleIdentifier == identifier {
+            if !(localSettings.onlyKillChosenWhenLocked && localSettings.deviceLocked) {
+                //Exclude if now playing
+                if localSettings.excludeMediaApps {
+                    if nowPlayingApp?.bundleIdentifier == identifier {
+                        layoutsToExclude.insert(app)
+                        continue
+                    }
+                }
+                
+                //Exclude if black listed
+                if localSettings.whitelistApps.contains(identifier) {
                     layoutsToExclude.insert(app)
                     continue
                 }
-            }
-            
-            //Exclude if black listed
-            if localSettings.blacklistApps.contains(identifier) {
-                layoutsToExclude.insert(app)
-                continue
             }
             
             //Exclude if not found in the bundleIDS argument (If that exists).
@@ -243,7 +247,7 @@ class SBLockStateAggregator_Hook: ClassHook<SBLockStateAggregator> {
             
             killTimer = Timer.scheduledTimer(withTimeInterval: localSettings.time, repeats: false, block: { action in
                 localSettings.comingFromTimer = true
-                switcher.killControlKillApps(nil)
+                switcher.killControlKillApps(localSettings.onlyKillChosenWhenLocked ? localSettings.onlyKillTheseWhenLocked : nil)
                 self.killTimer?.invalidate()
             })
         }
@@ -270,6 +274,8 @@ func readPrefs() {
     localSettings.hasGracePeriod = dict.value(forKey: "hasGracePeriod") as? Bool ?? false
     localSettings.killLockGracePeriodTimeMeasurement = dict.value(forKey: "killLockGracePeriodTimeMeasurement") as? Int ?? 1
     localSettings.killLockGracePeriod = dict.value(forKey: "killLockGracePeriod") as? Double ?? 10.0
+    localSettings.onlyKillChosenWhenLocked = dict.value(forKey: "onlyKillChosenWhenLocked") as? Bool ?? false
+    localSettings.onlyKillTheseWhenLocked = dict.value(forKey: "onlyKillTheseWhenLocked") as? [String] ?? [String]()
     //Kill/Open Rules
     localSettings.killOnAppLaunch = dict.value(forKey: "killOnAppLaunch") as? Bool ?? false
     localSettings.openOnAppLaunch = dict.value(forKey: "openOnAppLaunch") as? Bool ?? false
@@ -278,7 +284,7 @@ func readPrefs() {
     localSettings.openTheseAppsTwo = dict.value(forKey: "openTheseAppsTwo") as? [String] ?? [""]
     localSettings.whenThisAppOpensTwo = dict.value(forKey: "whenThisAppOpensTwo") as? String ?? ""
     //Blacklisting
-    localSettings.blacklistApps = dict.value(forKey: "blacklistApps") as? [String] ?? [""]
+    localSettings.whitelistApps = dict.value(forKey: "whitelistApps") as? [String] ?? [""]
     localSettings.excludeMediaApps = dict.value(forKey: "excludeMediaApps") as? Bool ?? true
     //Misc
     localSettings.swipeDownToKillAll = dict.value(forKey: "swipeDownToKillAll") as? Bool ?? true

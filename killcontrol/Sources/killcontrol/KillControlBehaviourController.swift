@@ -40,14 +40,16 @@ class KillControlBehaviourController: PSListController {
                 if array.contains(dynamicSpecifier) {
                     let shouldHide = shouldHideSpecifier(dynamicSpecifier)
                     
-                    let specifierCell: UITableViewCell = dynamicSpecifier.property(forKey: PSTableCellKey) as! UITableViewCell
-                    specifierCell.clipsToBounds = shouldHide
-                    
-                    if shouldHide {
-                        if !hiddenSpecifiers.contains(dynamicSpecifier) {
-                            hiddenSpecifiers.append(dynamicSpecifier)
+                    if let specifierCell: UITableViewCell = dynamicSpecifier.property(forKey: PSTableCellKey) as? UITableViewCell {
+                        specifierCell.clipsToBounds = shouldHide
+                        
+                        if shouldHide {
+                            if !hiddenSpecifiers.contains(dynamicSpecifier) {
+                                hiddenSpecifiers.append(dynamicSpecifier)
+                            }
+                            return 0
                         }
-                        return 0
+
                     }
                 } else {
                     if hiddenSpecifiers.contains(dynamicSpecifier) {

@@ -60,6 +60,57 @@
             <key>cellClass</key>
             <string>PSSubtitleSwitchTableCell</string>
             <key>cellSubtitleText</key>
+            <string>Only kill chosen apps when locked</string>
+            <key>default</key>
+            <false/>
+            <key>defaults</key>
+            <string>com.ginsu.killcontrol</string>
+            <key>key</key>
+            <string>onlyKillChosenWhenLocked</string>
+            <key>label</key>
+            <string>Black list</string>
+            <key>dynamicRule</key>
+            <string>killAfterLockStatus,0</string>
+            <key>id</key>
+            <string>onlyKillChosenWhenLockedStatus</string>
+        </dict>
+        <dict>
+            <key>bundle</key>
+            <string>AltList</string>
+            <key>cell</key>
+            <string>PSLinkListCell</string>
+            <key>detail</key>
+            <string>ATLApplicationListMultiSelectionController</string>
+            <key>key</key>
+            <string>onlyKillTheseWhenLocked</string>
+            <key>defaults</key>
+            <string>com.ginsu.killcontrol</string>
+            <key>sections</key>
+            <array>
+                <dict>
+                    <key>sectionType</key>
+                    <string>Visible</string>
+                </dict>
+            </array>
+            <key>isController</key>
+            <true/>
+            <key>overridePrincipalClass</key>
+            <true/>
+            <key>label</key>
+            <string>Only kill these apps</string>
+            <key>useSearchBar</key>
+            <true/>
+            <key>alphabeticIndexingEnabled</key>
+            <true/>
+            <key>dynamicRule</key>
+            <string>onlyKillChosenWhenLockedStatus,0</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSSwitchCell</string>
+            <key>cellClass</key>
+            <string>PSSubtitleSwitchTableCell</string>
+            <key>cellSubtitleText</key>
             <string>Kill apps after a specified time.</string>
             <key>default</key>
             <false/>
@@ -296,9 +347,9 @@
             <key>cell</key>
             <string>PSGroupCell</string>
             <key>label</key>
-            <string>Blacklist</string>
+            <string>White listing</string>
             <key>footerText</key>
-            <string>Exlude some apps from being killed.</string>
+            <string>Prevent selected apps from being killed. While the device is locked, if a black list has been configured under the 'Device Lock' section, the white list and now playing app options will be ignored.</string>
         </dict>
         <dict>
             <key>bundle</key>
@@ -308,7 +359,7 @@
             <key>detail</key>
             <string>ATLApplicationListMultiSelectionController</string>
             <key>key</key>
-            <string>blacklistApps</string>
+            <string>whitelistApps</string>
             <key>defaults</key>
             <string>com.ginsu.killcontrol</string>
             <key>sections</key>
@@ -323,7 +374,7 @@
             <key>overridePrincipalClass</key>
             <true/>
             <key>label</key>
-            <string>Blacklist</string>
+            <string>White list</string>
             <key>useSearchBar</key>
             <true/>
             <key>alphabeticIndexingEnabled</key>
