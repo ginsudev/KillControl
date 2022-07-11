@@ -131,17 +131,23 @@ class SBMainSwitcherViewController_Hook: ClassHook<SBMainSwitcherViewController>
             let displayItem = Ivars<SBPBDisplayItem>(app.protobufRepresentation())._primaryDisplayItem
             let identifier: String = Ivars<NSString>(displayItem)._bundleIdentifier as String
             
-            if !(localSettings.onlyKillChosenWhenLocked && localSettings.deviceLocked) {
-                //Exclude if now playing
-                if localSettings.excludeMediaApps {
-                    if nowPlayingApp?.bundleIdentifier == identifier {
-                        layoutsToExclude.insert(app)
-                        continue
+            //Exclude if now playing. If onlyKillChosenWhenLocked is enabled and device is locked and now playing app is not playing music, don't exclude it.
+            if localSettings.excludeMediaApps {
+                if nowPlayingApp?.bundleIdentifier == identifier {
+                    if localSettings.onlyKillChosenWhenLocked && localSettings.deviceLocked && localSettings.onlyKillTheseWhenLocked.contains(identifier) {
+                        guard !SBMediaController.sharedInstance().isPaused() else {
+                            continue
+                        }
                     }
+                    
+                    layoutsToExclude.insert(app)
+                    continue
                 }
-                
+            }
+            
+            if !(localSettings.onlyKillChosenWhenLocked && localSettings.deviceLocked) {
                 //Exclude if black listed
-                if localSettings.whitelistApps.contains(identifier) {
+                guard !localSettings.whitelistApps.contains(identifier) else {
                     layoutsToExclude.insert(app)
                     continue
                 }
@@ -149,8 +155,9 @@ class SBMainSwitcherViewController_Hook: ClassHook<SBMainSwitcherViewController>
             
             //Exclude if not found in the bundleIDS argument (If that exists).
             if bundleIDS != nil {
-                if !bundleIDS!.contains(identifier) {
+                guard bundleIDS!.contains(identifier) else {
                     layoutsToExclude.insert(app)
+                    continue
                 }
             }
         }

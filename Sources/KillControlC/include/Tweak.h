@@ -62,4 +62,5 @@ extern int SBSLaunchApplicationWithIdentifier(CFStringRef identifier, Boolean su
 @interface SBMediaController : NSObject
 + (instancetype)sharedInstance;
 - (SBApplication *)nowPlayingApplication;
+- (BOOL)isPaused;
 @end
