@@ -15,8 +15,16 @@ extern int SBSLaunchApplicationWithIdentifier(CFStringRef identifier, Boolean su
 - (SBPBAppLayout *)protobufRepresentation;
 @end
 
+@interface SBFluidSwitcherIconImageContainerView : UIView
+@end
+
+@interface SBFluidSwitcherItemContainerHeaderView : UIView
+@end
+
 @interface SBReusableSnapshotItemContainer : UIView
+@property (nonatomic,copy) NSArray * headerItems;
 @property (nonatomic,readonly) double killingProgress;
+- (void)setHeaderItems:(id)arg1 animated:(BOOL)arg2;
 @end
 
 @interface SBMainSwitcherViewController : UIViewController
@@ -25,6 +33,7 @@ extern int SBSLaunchApplicationWithIdentifier(CFStringRef identifier, Boolean su
 - (void)addAppLayoutForDisplayItem:(id)arg1 completion:(/*^block*/id)arg2 ;
 - (NSArray<SBAppLayout *>*)appLayoutsForSwitcherContentController:(id)arg1;
 - (void)fluidSwitcherGestureManager:(id)arg1 willEndDraggingWindowWithSceneIdentifier:(id)arg2 ;
+- (BOOL)switcherContentController:(id)arg1 supportsKillingOfAppLayout:(id)arg2 ;
 //New methods:
 - (void)killControlKillApps:(NSArray<NSString*>*)apps;
 @end

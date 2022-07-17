@@ -18,10 +18,11 @@ struct localSettings {
     static var openTheseAppsTwo: [String]!
     static var whenThisAppOpensTwo: String!
     //Blacklisting
-    static var whitelistApps: [String]!
+    static var whitelistApps: Set<String>!
     static var excludeMediaApps: Bool!
     //Misc
     static var swipeDownToKillAll: Bool!
+    static var preventSwipe: Bool!
     static var askBeforeKilling: Bool!
     //Timer settings
     static var comingFromTimer = false
@@ -44,19 +45,178 @@ struct localSettings {
 
 struct tweak: HookGroup {}
 struct killAfterLock: HookGroup {}
-struct swipeDownToKillAll: HookGroup {}
+struct excludeMediaApps: HookGroup {}
 
-//MARK: - Swipe down to kill
+//MARK: - Swipe down to kill, white-list shortcut.
 class SBReusableSnapshotItemContainer_Hook: ClassHook<SBReusableSnapshotItemContainer> {
-    typealias Group = swipeDownToKillAll
+    typealias Group = tweak
+        
+    func initWithFrame(_ frame: CGRect, appLayout layout: SBAppLayout, delegate arg3: AnyObject, active arg4: Bool) -> Target {
+        
+        /* Add long hold gesture to each switcher app card, which will be used as a shortcut to whitelist / un-whitelist apps. (Temporary, does not persist over respring and is designed to be like that). */
+        
+        if localSettings.excludeMediaApps {
+            NotificationCenter.default.addObserver(target,
+                                                   selector: #selector(refreshLockedStatus),
+                                                   name: NSNotification.Name("KillControl.refreshLock"),
+                                                   object: nil)
+        }
+        
+        let longHold = UILongPressGestureRecognizer(target: target, action: #selector(killControlToggleItemWhiteListedWithRecogniser(_:)))
+        longHold.minimumPressDuration = 1.0
+        target.addGestureRecognizer(longHold)
+        
+        return orig.initWithFrame(frame, appLayout: layout, delegate: arg3, active: arg4)
+    }
     
     func _updateTransformForCurrentHighlight() {
         orig._updateTransformForCurrentHighlight()
+        
+        //Swipe down to kill all gesture.
+        guard localSettings.swipeDownToKillAll else {
+            return
+        }
         
         //Kills all apps when the kill progress is <= -0.2.
         if target.killingProgress <= -0.2 {
             SBMainSwitcherViewController.sharedInstanceIfExists().killControlKillApps(nil)
         }
+    }
+    
+    func _scrollViewShouldPanGestureTryToBegin(_ arg1: AnyObject) -> Bool {
+        /* Prevent swiping gestures on white-listed apps if the user has
+           that option enabled. */
+        
+        guard localSettings.preventSwipe else {
+            return orig._scrollViewShouldPanGestureTryToBegin(arg1)
+        }
+        
+        //Prevent swipe gesture if app id is white-listed / now playing.
+        if let identifier = KCAppResults().identfierForItem(withLayout: Ivars<SBAppLayout?>(target)._appLayout) {
+            let filter = KCAppResults().filterTypeForItem(withIdentifier: identifier)
+            guard filter == .noFilter else {
+                return false
+            }
+        }
+        
+        return orig._scrollViewShouldPanGestureTryToBegin(arg1)
+    }
+    
+    func _updateHeaderAnimated(_ animated: Bool) {
+        orig._updateHeaderAnimated(animated)
+
+        //Refresh locked status when presenting the app switcher.
+        DispatchQueue.main.async {
+            self.refreshLockedStatus()
+        }
+    }
+    
+    func setTitleOpacity(_ opacity: CGFloat) {
+        orig.setTitleOpacity(opacity)
+        
+        /* Apply header view's title opacity to our lock icon if the app is white listed.
+           Exit if app is not white listed. */
+        
+        if let identifier = KCAppResults().identfierForItem(withLayout: Ivars<SBAppLayout?>(target)._appLayout) {
+            let filter = KCAppResults().filterTypeForItem(withIdentifier: identifier)
+            guard filter != .noFilter else {
+                return
+            }
+        }
+        
+        guard let headerView = Ivars<SBFluidSwitcherItemContainerHeaderView?>(target)._iconAndLabelHeader else {
+            return
+        }
+        
+        if let lockView = headerView.subviews.first(where: { $0 is UIImageView }) {
+            lockView.alpha = opacity
+        }
+    }
+    
+    //orion: new
+    @objc func refreshLockedStatus() {
+        //Refreshes locked status. This method is called when the app switcher gets presented.
+        if let identifier = KCAppResults().identfierForItem(withLayout: Ivars<SBAppLayout?>(target)._appLayout) {
+            let filter = KCAppResults().filterTypeForItem(withIdentifier: identifier)
+            killControlUpdateHeaderItems(withFilter: filter)
+        }
+    }
+    
+    //orion: new
+    @objc func killControlToggleItemWhiteListedWithRecogniser(_ recogniser: UILongPressGestureRecognizer) {
+        //Request toggling white-listed for an app by holding your finger for n seconds on an app.
+        if recogniser.state == .began {
+            if let identifier = KCAppResults().identfierForItem(withLayout: Ivars<SBAppLayout?>(target)._appLayout) {
+                killControlToggleItemWhiteListed(withIdentifer: identifier)
+            }
+        }
+    }
+
+    //orion: new
+    func killControlToggleItemWhiteListed(withIdentifer identifier: String) {
+        //Toggle white-listed for an app.
+        
+        var filterType = KCAppResults().filterTypeForItem(withIdentifier: identifier)
+        
+        guard filterType != .media else {
+            return
+        }
+        
+        if filterType == .whiteListed {
+            //Remove from whitelisted app list if exists.
+            localSettings.whitelistApps.remove(identifier)
+            filterType = .noFilter
+        } else {
+            //Add to whitelisted app list if doesn't exist.
+            localSettings.whitelistApps.insert(identifier)
+            filterType = .whiteListed
+        }
+
+        killControlUpdateHeaderItems(withFilter: filterType)
+        
+        //Haptics
+        let thud = UIImpactFeedbackGenerator(style: .medium)
+        thud.prepare()
+        thud.impactOccurred()
+    }
+    
+    //orion: new
+    func killControlUpdateHeaderItems(withFilter filter: KCFilterType) {
+        //This method is used to add/remove the lock to the header view of an app card.
+                
+        guard let headerView = Ivars<SBFluidSwitcherItemContainerHeaderView?>(target)._iconAndLabelHeader else {
+            return
+        }
+        
+        //Remove lock if not white-listed.
+        if filter == .noFilter {
+            if let lockView = headerView.subviews.first(where: { $0 is UIImageView }) {
+                lockView.removeFromSuperview()
+            }
+            return
+        }
+        
+        //Don't add lock if it already exists.
+        guard !headerView.subviews.contains(where: { $0 is UIImageView }) else {
+            return
+        }
+        
+        //Proceed to add lock if white-listed.
+        let appLabel = Ivars<UILabel>(headerView)._firstTitleLabel
+        let spacing = Ivars<CGFloat>(headerView)._spacingBetweenSnapshotAndIcon
+        
+        let image = UIImage(systemName: filter == .media ? "music.note" : "lock.fill")
+        
+        let lockImageView = UIImageView(image: image)
+        lockImageView.translatesAutoresizingMaskIntoConstraints = false
+        lockImageView.tintColor = .white
+        lockImageView.contentMode = .scaleAspectFit
+        headerView.addSubview(lockImageView)
+        //Constraints
+        lockImageView.leftAnchor.constraint(equalTo: appLabel.rightAnchor, constant: spacing).isActive = true
+        lockImageView.centerYAnchor.constraint(equalTo: appLabel.centerYAnchor).isActive = true
+        lockImageView.heightAnchor.constraint(equalTo: appLabel.heightAnchor).isActive = true
+        lockImageView.widthAnchor.constraint(equalTo: appLabel.heightAnchor).isActive = true
     }
 }
 
@@ -118,28 +278,25 @@ class SBMainSwitcherViewController_Hook: ClassHook<SBMainSwitcherViewController>
         and another empty which we will add excluded apps to. */
         var appLayouts: Set<SBAppLayout> = Set(target.appLayouts(forSwitcherContentController: target))
         var layoutsToExclude = Set<SBAppLayout>()
-        
-        //Get the now playing app if it exists.
-        var nowPlayingApp: SBApplication?
-        if localSettings.excludeMediaApps {
-            nowPlayingApp = SBMediaController.sharedInstance().nowPlayingApplication() ?? nil
-        }
-        
+
         //Adding exlcuded apps to our layoutsToExclude set.
         for app in appLayouts {
             //Get the bundleIdentifier from each app's layout.
-            let displayItem = Ivars<SBPBDisplayItem>(app.protobufRepresentation())._primaryDisplayItem
-            let identifier: String = Ivars<NSString>(displayItem)._bundleIdentifier as String
+            guard let identifier = KCAppResults().identfierForItem(withLayout: app) else {
+                continue
+            }
             
-            //Exclude if now playing. If onlyKillChosenWhenLocked is enabled and device is locked and now playing app is not playing music, don't exclude it.
+            //Skip the media app if it's playing, device is locked and is in the onlyKillTheseWhenLocked array.
+            if localSettings.deviceLocked && localSettings.onlyKillChosenWhenLocked && localSettings.onlyKillTheseWhenLocked.contains(identifier) {
+                guard KCAppResults().filterTypeForItem(withIdentifier: identifier) != .media else {
+                    layoutsToExclude.insert(app)
+                    continue
+                }
+            }
+
+            //Exclude if now playing.
             if localSettings.excludeMediaApps {
-                if nowPlayingApp?.bundleIdentifier == identifier {
-                    if localSettings.onlyKillChosenWhenLocked && localSettings.deviceLocked && localSettings.onlyKillTheseWhenLocked.contains(identifier) {
-                        guard !SBMediaController.sharedInstance().isPaused() else {
-                            continue
-                        }
-                    }
-                    
+                guard KCAppResults().filterTypeForItem(withIdentifier: identifier) != .media else {
                     layoutsToExclude.insert(app)
                     continue
                 }
@@ -186,8 +343,12 @@ class FBProcessManagerHook: ClassHook<FBProcessManager> {
                             }
                             
                             //Manually add the app to switcher
-                            let displayItem = SBDisplayItem(type: 0, bundleIdentifier: identifier, uniqueIdentifier: "sceneID:\(identifier)-default")
-                            SBMainSwitcherViewController.sharedInstanceIfExists().addAppLayout(forDisplayItem: displayItem, completion: nil)
+                            let displayItem = SBDisplayItem(type: 0,
+                                                            bundleIdentifier: identifier,
+                                                            uniqueIdentifier: "sceneID:\(identifier)-default")
+                            
+                            SBMainSwitcherViewController.sharedInstanceIfExists().addAppLayout(forDisplayItem: displayItem,
+                                                                                               completion: nil)
                         }
                     }
                 }
@@ -257,7 +418,19 @@ class SBLockStateAggregator_Hook: ClassHook<SBLockStateAggregator> {
                 switcher.killControlKillApps(localSettings.onlyKillChosenWhenLocked ? localSettings.onlyKillTheseWhenLocked : nil)
                 self.killTimer?.invalidate()
             })
+        } else {
+            switcher.killControlKillApps(localSettings.onlyKillChosenWhenLocked ? localSettings.onlyKillTheseWhenLocked : nil)
         }
+    }
+}
+
+class SBMediaController_Hook: ClassHook<SBMediaController> {
+    typealias Group = excludeMediaApps
+    
+    func _mediaRemoteNowPlayingApplicationIsPlayingDidChange(_ change: AnyObject) {
+        orig._mediaRemoteNowPlayingApplicationIsPlayingDidChange(change)
+        
+        NotificationCenter.default.post(name: NSNotification.Name("KillControl.refreshLock"), object: nil, userInfo: nil)
     }
 }
 
@@ -291,11 +464,12 @@ func readPrefs() {
     localSettings.openTheseAppsTwo = dict.value(forKey: "openTheseAppsTwo") as? [String] ?? [""]
     localSettings.whenThisAppOpensTwo = dict.value(forKey: "whenThisAppOpensTwo") as? String ?? ""
     //Blacklisting
-    localSettings.whitelistApps = dict.value(forKey: "whitelistApps") as? [String] ?? [""]
+    localSettings.whitelistApps = Set(dict.value(forKey: "whitelistApps") as? [String] ?? [""])
     localSettings.excludeMediaApps = dict.value(forKey: "excludeMediaApps") as? Bool ?? true
     //Misc
     localSettings.swipeDownToKillAll = dict.value(forKey: "swipeDownToKillAll") as? Bool ?? true
     localSettings.askBeforeKilling = dict.value(forKey: "askBeforeKilling") as? Bool ?? false
+    localSettings.preventSwipe = dict.value(forKey: "preventSwipe") as? Bool ?? false
 }
 
 struct KillControl: Tweak {
@@ -306,10 +480,6 @@ struct KillControl: Tweak {
             
             if localSettings.killAfterLock {
                 killAfterLock().activate()
-            }
-            
-            if localSettings.swipeDownToKillAll {
-                swipeDownToKillAll().activate()
             }
         }
     }

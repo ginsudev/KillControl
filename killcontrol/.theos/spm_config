@@ -1,0 +1,4 @@
+theos=/Users/noah/theos
+sdk=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.5.sdk
+deploymentTarget=12.2
+swiftResourceDir=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../lib/swift
