@@ -5,4 +5,7 @@
 xcuserdata/
 
 .theos
+.swiftpm
+killcontrol/.theos
+killcontrol/.swiftpm
 /packages
