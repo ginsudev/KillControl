@@ -164,18 +164,20 @@ class SBReusableSnapshotItemContainer_Hook: ClassHook<SBReusableSnapshotItemCont
         
         var filterType = KCAppResults().filterTypeForItem(withIdentifier: identifier)
         
-        guard filterType != .media else {
-            return
-        }
-        
-        if filterType == .whiteListed {
-            //Remove from whitelisted app list if exists.
-            localSettings.whitelistApps.remove(identifier)
-            filterType = .noFilter
-        } else {
+        switch filterType {
+        case .noFilter:
             //Add to whitelisted app list if doesn't exist.
             localSettings.whitelistApps.insert(identifier)
             filterType = .whiteListed
+            break
+        case .whiteListed:
+            //Remove from whitelisted app list if exists.
+            localSettings.whitelistApps.remove(identifier)
+            filterType = .noFilter
+            break
+        case .media:
+            //Don't continue if app is a media app.
+            return
         }
 
         killControlUpdateHeaderItems(withFilter: filterType)
