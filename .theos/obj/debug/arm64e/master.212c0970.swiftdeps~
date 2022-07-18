@@ -1,7 +1,0 @@
-version: "Apple Swift version 5.6.1 (swiftlang-5.6.0.323.66 clang-1316.0.20.12)"
-options: "d8af3b9b27d65690774fc6a8844998ed30fac0d23da7b7b9dad378715c8ca1b3"
-build_start_time: [1658058113, 759273052]
-build_end_time: [1658058114, 194372177]
-inputs:
-  "Sources/killcontrol/KillControlBehaviourController.swift": [1657450455, 764271259]
-  "Sources/killcontrol/RootListController.swift": [1658058101, 874219417]
