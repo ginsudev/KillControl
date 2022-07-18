@@ -10,6 +10,7 @@ struct localSettings {
     static var killLockGracePeriod: Double!
     static var onlyKillChosenWhenLocked: Bool!
     static var onlyKillTheseWhenLocked: [String]!
+    static var killAfterForcedlLock: Bool!
     //Kill/Open rule
     static var killOnAppLaunch: Bool!
     static var openOnAppLaunch: Bool!
@@ -46,6 +47,7 @@ struct localSettings {
 struct tweak: HookGroup {}
 struct killAfterLock: HookGroup {}
 struct excludeMediaApps: HookGroup {}
+struct killAfterForcedlLock: HookGroup {}
 
 //MARK: - Swipe down to kill, white-list shortcut.
 class SBReusableSnapshotItemContainer_Hook: ClassHook<SBReusableSnapshotItemContainer> {
@@ -79,7 +81,11 @@ class SBReusableSnapshotItemContainer_Hook: ClassHook<SBReusableSnapshotItemCont
         
         //Kills all apps when the kill progress is <= -0.2.
         if target.killingProgress <= -0.2 {
-            SBMainSwitcherViewController.sharedInstanceIfExists().killControlKillApps(nil)
+            guard let switcher = SBMainSwitcherViewController.sharedInstanceIfExists() else {
+                return
+            }
+            
+            KCHelper.sharedInstance.killApps(nil, controller: switcher)
         }
     }
     
@@ -220,111 +226,6 @@ class SBReusableSnapshotItemContainer_Hook: ClassHook<SBReusableSnapshotItemCont
     }
 }
 
-class SBMainSwitcherViewController_Hook: ClassHook<SBMainSwitcherViewController> {
-    typealias Group = tweak
-
-    //orion: new
-    @objc func killControlKillApps(_ apps: [String]?) {
-        //Check if this method was called from a timer. If it was, only continue if the device is locked.
-        if localSettings.hasGracePeriod && localSettings.comingFromTimer {
-            localSettings.comingFromTimer = false
-            
-            guard localSettings.deviceLocked else {
-                return
-            }
-        }
-        
-        //Get a filtered app layout list that respects the user's blacklisting settings and open/kill rules.
-        let layoutList = killControlFilteredLayouts(withFilter: apps)
-        
-        //Skip the confirmation prompt if the user doesn't want it.
-        guard localSettings.askBeforeKilling && !localSettings.deviceLocked else {
-            killControlKillInLayoutList(layoutList)
-            return
-        }
-        
-        //Present confirmation alert
-        let alert = UIAlertController(title: "KillControl", message: "Are you sure you want to kill all apps?", preferredStyle: .alert)
-        
-        alert.addAction(UIAlertAction(title: "Kill", style: .destructive, handler: { action in
-            self.killControlKillInLayoutList(layoutList)
-        }))
-        
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
-        
-        target.present(alert, animated: true)
-    }
-    
-    //orion: new
-    func killControlKillInLayoutList(_ list: [SBAppLayout]) {
-        //Play haptic feedback when all apps are killed (Only when the device is unlocked).
-        if !localSettings.deviceLocked {
-            let thud = UIImpactFeedbackGenerator(style: .medium)
-            thud.prepare()
-            thud.impactOccurred()
-        }
-        
-        //Kill all apps.
-        for layout in list {
-            target._remove(layout, forReason: 0)
-        }
-    }
-    
-    //orion: new
-    func killControlFilteredLayouts(withFilter bundleIDS: [String]?) -> [SBAppLayout] {
-        //Returns a list of apps to be killed
-        
-        /* Create two sets, one that contains all app layouts that are currently in the app switcher,
-        and another empty which we will add excluded apps to. */
-        var appLayouts: Set<SBAppLayout> = Set(target.appLayouts(forSwitcherContentController: target))
-        var layoutsToExclude = Set<SBAppLayout>()
-
-        //Adding exlcuded apps to our layoutsToExclude set.
-        for app in appLayouts {
-            //Get the bundleIdentifier from each app's layout.
-            guard let identifier = KCAppResults().identfierForItem(withLayout: app) else {
-                continue
-            }
-            
-            //Skip the media app if it's playing, device is locked and is in the onlyKillTheseWhenLocked array.
-            if localSettings.deviceLocked && localSettings.onlyKillChosenWhenLocked && localSettings.onlyKillTheseWhenLocked.contains(identifier) {
-                guard KCAppResults().filterTypeForItem(withIdentifier: identifier) != .media else {
-                    layoutsToExclude.insert(app)
-                    continue
-                }
-            }
-
-            //Exclude if now playing.
-            if localSettings.excludeMediaApps {
-                guard KCAppResults().filterTypeForItem(withIdentifier: identifier) != .media else {
-                    layoutsToExclude.insert(app)
-                    continue
-                }
-            }
-            
-            if !(localSettings.onlyKillChosenWhenLocked && localSettings.deviceLocked) {
-                //Exclude if black listed
-                guard !localSettings.whitelistApps.contains(identifier) else {
-                    layoutsToExclude.insert(app)
-                    continue
-                }
-            }
-            
-            //Exclude if not found in the bundleIDS argument (If that exists).
-            if bundleIDS != nil {
-                guard bundleIDS!.contains(identifier) else {
-                    layoutsToExclude.insert(app)
-                    continue
-                }
-            }
-        }
-        
-        //Subtract the excluded app set from the set that contains all app layouts, then return it as an array.
-        appLayouts = appLayouts.subtracting(layoutsToExclude)
-        return Array(appLayouts)
-    }
-}
-
 class FBProcessManagerHook: ClassHook<FBProcessManager> {
     typealias Group = tweak
 
@@ -347,8 +248,7 @@ class FBProcessManagerHook: ClassHook<FBProcessManager> {
                                                             bundleIdentifier: identifier,
                                                             uniqueIdentifier: "sceneID:\(identifier)-default")
                             
-                            SBMainSwitcherViewController.sharedInstanceIfExists().addAppLayout(forDisplayItem: displayItem,
-                                                                                               completion: nil)
+                            SBMainSwitcherViewController.sharedInstanceIfExists().addAppLayout(forDisplayItem: displayItem, completion: nil)
                         }
                     }
                 }
@@ -361,7 +261,11 @@ class FBProcessManagerHook: ClassHook<FBProcessManager> {
                 if processIdentifier == localSettings.whenThisAppOpensOne {
                     DispatchQueue.main.async {
                         //Kill user-specified apps
-                        SBMainSwitcherViewController.sharedInstanceIfExists().killControlKillApps(localSettings.killTheseAppsOne)
+                        guard let switcher = SBMainSwitcherViewController.sharedInstanceIfExists() else {
+                            return
+                        }
+                        
+                        KCHelper.sharedInstance.killApps(localSettings.killTheseAppsOne, controller: switcher)
                     }
                 }
             }
@@ -374,9 +278,7 @@ class FBProcessManagerHook: ClassHook<FBProcessManager> {
 
 class SBLockStateAggregator_Hook: ClassHook<SBLockStateAggregator> {
     typealias Group = killAfterLock
-    
-    @Property(.nonatomic, .retain) var killTimer: Timer? = Timer()
-    
+        
     func _updateLockState() {
         orig._updateLockState()
         
@@ -399,27 +301,54 @@ class SBLockStateAggregator_Hook: ClassHook<SBLockStateAggregator> {
                 
         guard localSettings.deviceLocked else {
             //Invalidate the timer if it is valid and the device is unlocked
-            if let killTimer = killTimer {
-                if killTimer.isValid {
-                    killTimer.invalidate()
-                }
-            }
+            KCHelper.sharedInstance.invalidateTimer()
             //Don't progress if unlocked
             return
         }
         
+        guard !localSettings.killAfterForcedlLock else {
+            //Don't progress if lock button only is enabled.
+            return
+        }
+                
         if localSettings.hasGracePeriod {
-            if killTimer != nil {
-                killTimer = Timer()
-            }
-            
-            killTimer = Timer.scheduledTimer(withTimeInterval: localSettings.time, repeats: false, block: { action in
-                localSettings.comingFromTimer = true
-                switcher.killControlKillApps(localSettings.onlyKillChosenWhenLocked ? localSettings.onlyKillTheseWhenLocked : nil)
-                self.killTimer?.invalidate()
-            })
+            KCHelper.sharedInstance.killUsingTimer(withInterval: localSettings.time, controller: switcher)
         } else {
-            switcher.killControlKillApps(localSettings.onlyKillChosenWhenLocked ? localSettings.onlyKillTheseWhenLocked : nil)
+            KCHelper.sharedInstance.killApps(localSettings.onlyKillChosenWhenLocked ? localSettings.onlyKillTheseWhenLocked : nil, controller: switcher)
+        }
+    }
+}
+
+class SBDashBoardLockScreenEnvironment_Hook: ClassHook<SBDashBoardLockScreenEnvironment> {
+    typealias Group = killAfterForcedlLock
+    
+    @Property (.nonatomic, .retain) var lastLockPressTime: Date? = Date()
+        
+    func handleLockButtonPress() -> Bool {
+        lastLockPressTime = Date()
+        return orig.handleLockButtonPress()
+    }
+    
+    func prepareForUILock() {
+        orig.prepareForUILock()
+        
+        guard let lastLockPressTime = lastLockPressTime else {
+            return
+        }
+        
+        let interval = DateInterval(start: lastLockPressTime, end: Date())
+        
+        if interval.duration <= 2 {
+            guard let switcher = SBMainSwitcherViewController.sharedInstanceIfExists() else {
+                //Don't progress if switcher has no shared instance ready for use
+                return
+            }
+
+            if localSettings.hasGracePeriod {
+                KCHelper.sharedInstance.killUsingTimer(withInterval: localSettings.time, controller: switcher)
+            } else {
+                KCHelper.sharedInstance.killApps(localSettings.onlyKillChosenWhenLocked ? localSettings.onlyKillTheseWhenLocked : nil, controller: switcher)
+            }
         }
     }
 }
@@ -430,7 +359,10 @@ class SBMediaController_Hook: ClassHook<SBMediaController> {
     func _mediaRemoteNowPlayingApplicationIsPlayingDidChange(_ change: AnyObject) {
         orig._mediaRemoteNowPlayingApplicationIsPlayingDidChange(change)
         
-        NotificationCenter.default.post(name: NSNotification.Name("KillControl.refreshLock"), object: nil, userInfo: nil)
+        //Update the now playing indicator when media playback changes.
+        NotificationCenter.default.post(name: NSNotification.Name("KillControl.refreshLock"),
+                                        object: nil,
+                                        userInfo: nil)
     }
 }
 
@@ -451,6 +383,7 @@ func readPrefs() {
     localSettings.isEnabled = dict.value(forKey: "isEnabled") as? Bool ?? true
     //Kill when locked
     localSettings.killAfterLock = dict.value(forKey: "killAfterLock") as? Bool ?? false
+    localSettings.killAfterForcedlLock = dict.value(forKey: "killAfterForcedlLock") as? Bool ?? false
     localSettings.hasGracePeriod = dict.value(forKey: "hasGracePeriod") as? Bool ?? false
     localSettings.killLockGracePeriodTimeMeasurement = dict.value(forKey: "killLockGracePeriodTimeMeasurement") as? Int ?? 1
     localSettings.killLockGracePeriod = dict.value(forKey: "killLockGracePeriod") as? Double ?? 10.0
@@ -478,8 +411,16 @@ struct KillControl: Tweak {
         if (localSettings.isEnabled) {
             tweak().activate()
             
+            if localSettings.excludeMediaApps {
+                excludeMediaApps().activate()
+            }
+            
             if localSettings.killAfterLock {
                 killAfterLock().activate()
+
+                if localSettings.killAfterForcedlLock {
+                    killAfterForcedlLock().activate()
+                }
             }
         }
     }

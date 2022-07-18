@@ -14,9 +14,9 @@ import KillControlC
     case media = 2
 }
 
-class KCAppResults: NSObject {
+final class KCAppResults: NSObject {
 
-    func identfierForItem(withLayout layout: SBAppLayout?) -> String? {
+    public func identfierForItem(withLayout layout: SBAppLayout?) -> String? {
         //Returns the bundle identifier of an app card.
         
         guard let layout = layout else {
@@ -28,7 +28,7 @@ class KCAppResults: NSObject {
         return identifier
     }
     
-    func filterTypeForItem(withIdentifier identifier: String) -> KCFilterType {
+    public func filterTypeForItem(withIdentifier identifier: String) -> KCFilterType {
         //Returns true if app is whitelisted.
         
         //Check and return if app is media app.

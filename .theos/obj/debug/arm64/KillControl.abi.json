@@ -1,0 +1,43 @@
+{
+  "kind": "Root",
+  "name": "TopLevel",
+  "printedName": "TopLevel",
+  "children": [
+    {
+      "kind": "Import",
+      "name": "Preferences",
+      "printedName": "Preferences",
+      "declKind": "Import",
+      "moduleName": "killcontrol"
+    },
+    {
+      "kind": "Import",
+      "name": "killcontrolC",
+      "printedName": "killcontrolC",
+      "declKind": "Import",
+      "moduleName": "killcontrol"
+    },
+    {
+      "kind": "Import",
+      "name": "Preferences",
+      "printedName": "Preferences",
+      "declKind": "Import",
+      "moduleName": "killcontrol"
+    },
+    {
+      "kind": "Import",
+      "name": "Foundation",
+      "printedName": "Foundation",
+      "declKind": "Import",
+      "moduleName": "killcontrol"
+    },
+    {
+      "kind": "Import",
+      "name": "killcontrolC",
+      "printedName": "killcontrolC",
+      "declKind": "Import",
+      "moduleName": "killcontrol"
+    }
+  ],
+  "json_format_version": 6
+}

@@ -1,0 +1,9 @@
+version: "Apple Swift version 5.6.1 (swiftlang-5.6.0.323.66 clang-1316.0.20.12)"
+options: "767a5da65d1d9ec48c10c058754195b63f602acb111e6d44eb6827374e6c48c2"
+build_start_time: [1658145763, 124675989]
+build_end_time: [1658145763, 903697967]
+inputs:
+  "/Users/noah/Projects/Swift/KillControl/.theos/obj/debug/arm64e/generated/KillControl.xc.swift": [1658145763, 47245025]
+  "Sources/KillControl/KCAppResults.swift": [1658142728, 372683525]
+  "Sources/KillControl/KCHelper.swift": [1658142800, 40707826]
+  "Sources/KillControl/Tweak.x.swift": [1658145757, 982083320]

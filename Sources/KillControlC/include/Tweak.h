@@ -43,6 +43,12 @@ extern int SBSLaunchApplicationWithIdentifier(CFStringRef identifier, Boolean su
 - (unsigned long long)lockState;
 @end
 
+@interface SBDashBoardLockScreenEnvironment : NSObject
+@end
+
+@interface SBAssistantRootViewController : UIViewController
+@end
+
 @interface RBSProcessIdentity : NSObject
 @property(readonly, copy, nonatomic) NSString *executablePath;
 @property(readonly, copy, nonatomic) NSString *embeddedApplicationIdentifier;
