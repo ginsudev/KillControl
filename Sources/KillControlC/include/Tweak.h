@@ -24,6 +24,7 @@ extern int SBSLaunchApplicationWithIdentifier(CFStringRef identifier, Boolean su
 @interface SBReusableSnapshotItemContainer : UIView
 @property (nonatomic,copy) NSArray * headerItems;
 @property (nonatomic,readonly) double killingProgress;
+- (id)initWithFrame:(CGRect)arg1 appLayout:(id)arg2 delegate:(id)arg3 active:(BOOL)arg4 ;
 - (void)setHeaderItems:(id)arg1 animated:(BOOL)arg2;
 @end
 

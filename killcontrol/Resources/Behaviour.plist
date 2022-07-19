@@ -432,6 +432,46 @@
         </dict>
         <dict>
             <key>cell</key>
+            <string>PSSwitchCell</string>
+            <key>cellClass</key>
+            <string>PSSubtitleSwitchTableCell</string>
+            <key>cellSubtitleText</key>
+            <string>A shortcut to whitelisting apps</string>
+            <key>default</key>
+            <true/>
+            <key>defaults</key>
+            <string>com.ginsu.killcontrol</string>
+            <key>key</key>
+            <string>useWhiteListGesture</string>
+            <key>label</key>
+            <string>White list gesture</string>
+            <key>id</key>
+            <string>useWhiteListGestureStatus</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSSegmentCell</string>
+            <key>defaults</key>
+            <string>com.ginsu.killcontrol</string>
+            <key>default</key>
+            <integer>1</integer>
+            <key>key</key>
+            <string>whiteListShortcut</string>
+            <key>validTitles</key>
+            <array>
+                <string>One finger hold</string>
+                <string>Two finger hold</string>
+            </array>
+            <key>validValues</key>
+            <array>
+                <integer>1</integer>
+                <integer>2</integer>
+            </array>
+            <key>dynamicRule</key>
+            <string>useWhiteListGestureStatus,0</string>
+        </dict>
+        <dict>
+            <key>cell</key>
             <string>PSGroupCell</string>
             <key>label</key>
             <string>Miscellaneous</string>

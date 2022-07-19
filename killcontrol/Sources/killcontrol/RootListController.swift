@@ -60,7 +60,7 @@ class RootListController: PSListController {
                                 twitterHandle: "ginsudev",
                                 developerName: "Ginsu",
                                 tweakName: "KillControl",
-                                tweakVersion: "v1.2",
+                                tweakVersion: "v1.2.2",
                                 email: "njl02@outlook.com",
                                 discordURL: "https://discord.gg/BhdUyCbgkZ",
                                 donateURL: "https://paypal.me/xiaonuoya")

@@ -1,6 +1,7 @@
 import Orion
 import KillControlC
 
+//MARK: - Preferences storage
 struct localSettings {
     static var isEnabled: Bool!
     //Killing apps after lock + grace period
@@ -21,6 +22,8 @@ struct localSettings {
     //Blacklisting
     static var whitelistApps: Set<String>!
     static var excludeMediaApps: Bool!
+    static var useWhiteListGesture: Bool!
+    static var whiteListShortcut: Int! //1 = One finger hold, 2 = Two finger hold
     //Misc
     static var swipeDownToKillAll: Bool!
     static var preventSwipe: Bool!
@@ -44,6 +47,7 @@ struct localSettings {
     }
 }
 
+//MARK: - Hook groups
 struct tweak: HookGroup {}
 struct killAfterLock: HookGroup {}
 struct excludeMediaApps: HookGroup {}
@@ -52,10 +56,10 @@ struct killAfterForcedlLock: HookGroup {}
 //MARK: - Swipe down to kill, white-list shortcut.
 class SBReusableSnapshotItemContainer_Hook: ClassHook<SBReusableSnapshotItemContainer> {
     typealias Group = tweak
-        
+            
     func initWithFrame(_ frame: CGRect, appLayout layout: SBAppLayout, delegate arg3: AnyObject, active arg4: Bool) -> Target {
-        
-        /* Add long hold gesture to each switcher app card, which will be used as a shortcut to whitelist / un-whitelist apps. (Temporary, does not persist over respring and is designed to be like that). */
+                
+        /* Add long hold gesture to each switcher app card, which will be used as a shortcut to whitelist / un-whitelist apps. */
         
         if localSettings.excludeMediaApps {
             NotificationCenter.default.addObserver(target,
@@ -64,9 +68,12 @@ class SBReusableSnapshotItemContainer_Hook: ClassHook<SBReusableSnapshotItemCont
                                                    object: nil)
         }
         
-        let longHold = UILongPressGestureRecognizer(target: target, action: #selector(killControlToggleItemWhiteListedWithRecogniser(_:)))
-        longHold.minimumPressDuration = 1.0
-        target.addGestureRecognizer(longHold)
+        if localSettings.useWhiteListGesture {
+            let longHold = UILongPressGestureRecognizer(target: target, action: #selector(killControlToggleItemWhiteListedWithRecogniser(_:)))
+            longHold.minimumPressDuration = 1.0
+            longHold.numberOfTouchesRequired = localSettings.whiteListShortcut == 1 ? 1 : 2
+            target.addGestureRecognizer(longHold)
+        }
         
         return orig.initWithFrame(frame, appLayout: layout, delegate: arg3, active: arg4)
     }
@@ -181,6 +188,7 @@ class SBReusableSnapshotItemContainer_Hook: ClassHook<SBReusableSnapshotItemCont
         }
 
         killControlUpdateHeaderItems(withFilter: filterType)
+        pushChangesToWhiteList()
         
         //Haptics
         let thud = UIImpactFeedbackGenerator(style: .medium)
@@ -368,8 +376,21 @@ class SBMediaController_Hook: ClassHook<SBMediaController> {
     }
 }
 
+fileprivate func pushChangesToWhiteList() {
+    let path = "/var/mobile/Library/Preferences/com.ginsu.killcontrol.plist"
+
+    guard let dict = NSDictionary(contentsOfFile: path) else {
+        return
+    }
+    
+    let newWhitelist = Array(localSettings.whitelistApps)
+    dict.setValue(newWhitelist, forKey: "whitelistApps")
+    
+    dict.write(toFile: path, atomically: true)
+}
+
 //MARK: - Preferences
-func readPrefs() {
+fileprivate func readPrefs() {
     
     let path = "/var/mobile/Library/Preferences/com.ginsu.killcontrol.plist"
     
@@ -401,6 +422,8 @@ func readPrefs() {
     //Blacklisting
     localSettings.whitelistApps = Set(dict.value(forKey: "whitelistApps") as? [String] ?? [""])
     localSettings.excludeMediaApps = dict.value(forKey: "excludeMediaApps") as? Bool ?? true
+    localSettings.useWhiteListGesture = dict.value(forKey: "useWhiteListGesture") as? Bool ?? true
+    localSettings.whiteListShortcut = dict.value(forKey: "whiteListShortcut") as? Int ?? 1
     //Misc
     localSettings.swipeDownToKillAll = dict.value(forKey: "swipeDownToKillAll") as? Bool ?? true
     localSettings.askBeforeKilling = dict.value(forKey: "askBeforeKilling") as? Bool ?? false

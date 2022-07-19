@@ -28,5 +28,9 @@
 	<false/>
 	<key>preventSwipe</key>
 	<false/>
+	<key>useWhiteListGesture</key>
+	<true/>
+	<key>whiteListShortcut</key>
+	<integer>1</integer>
 </dict>
 </plist>
